@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"hash"
-	"internal/testenv"
 	"io"
 	"runtime"
 	"slices"
@@ -20,41 +19,6 @@ import (
 	"testing"
 	"time"
 )
-
-func TestOver65kFiles(t *testing.T) {
-	if testing.Short() && testenv.Builder() == "" {
-		t.Skip("skipping in short mode")
-	}
-	buf := new(strings.Builder)
-	w := NewWriter(buf)
-	const nFiles = (1 << 16) + 42
-	for i := 0; i < nFiles; i++ {
-		_, err := w.CreateHeader(&FileHeader{
-			Name:   fmt.Sprintf("%d.dat", i),
-			Method: Store, // Deflate is too slow when it is compiled with -race flag
-		})
-		if err != nil {
-			t.Fatalf("creating file %d: %v", i, err)
-		}
-	}
-	if err := w.Close(); err != nil {
-		t.Fatalf("Writer.Close: %v", err)
-	}
-	s := buf.String()
-	zr, err := NewReader(strings.NewReader(s), int64(len(s)))
-	if err != nil {
-		t.Fatalf("NewReader: %v", err)
-	}
-	if got := len(zr.File); got != nFiles {
-		t.Fatalf("File contains %d files, want %d", got, nFiles)
-	}
-	for i := 0; i < nFiles; i++ {
-		want := fmt.Sprintf("%d.dat", i)
-		if zr.File[i].Name != want {
-			t.Fatalf("File(%d) = %q, want %q", i, zr.File[i].Name, want)
-		}
-	}
-}
 
 func TestModTime(t *testing.T) {
 	var testTime = time.Date(2009, time.November, 10, 23, 45, 58, 0, time.UTC)

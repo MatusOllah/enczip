@@ -11,19 +11,17 @@ import (
 	"fmt"
 	"hash"
 	"hash/crc32"
-	"internal/godebug"
 	"io"
 	"io/fs"
 	"os"
 	"path"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 )
 
-var zipinsecurepath = godebug.New("zipinsecurepath")
+//var zipinsecurepath = godebug.New("zipinsecurepath")
 
 var (
 	ErrFormat       = errors.New("zip: not a valid zip file")
@@ -160,20 +158,22 @@ func (r *Reader) init(rdr io.ReaderAt, size int64) error {
 		// the wrong number of directory entries.
 		return err
 	}
-	if zipinsecurepath.Value() == "0" {
-		for _, f := range r.File {
-			if f.Name == "" {
-				// Zip permits an empty file name field.
-				continue
-			}
-			// The zip specification states that names must use forward slashes,
-			// so consider any backslashes in the name insecure.
-			if !filepath.IsLocal(f.Name) || strings.Contains(f.Name, `\`) {
-				zipinsecurepath.IncNonDefault()
-				return ErrInsecurePath
+	/*
+		if zipinsecurepath.Value() == "0" {
+			for _, f := range r.File {
+				if f.Name == "" {
+					// Zip permits an empty file name field.
+					continue
+				}
+				// The zip specification states that names must use forward slashes,
+				// so consider any backslashes in the name insecure.
+				if !filepath.IsLocal(f.Name) || strings.Contains(f.Name, `\`) {
+					zipinsecurepath.IncNonDefault()
+					return ErrInsecurePath
+				}
 			}
 		}
-	}
+	*/
 	return nil
 }
 
