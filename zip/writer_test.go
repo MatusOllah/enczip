@@ -7,12 +7,12 @@ package zip
 import (
 	"bytes"
 	"compress/flate"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"io"
 	"io/fs"
-	"math/rand"
 	"os"
 	"strings"
 	"testing"
