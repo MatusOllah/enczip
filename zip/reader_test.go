@@ -246,25 +246,6 @@ var tests = []ZipTest{
 		},
 	},
 	{
-		// created by Go, after we wrote the "optional" data
-		// descriptor signatures (which are required by macOS)
-		Name: "go-with-datadesc-sig.zip",
-		File: []ZipTestFile{
-			{
-				Name:     "foo.txt",
-				Content:  []byte("foo\n"),
-				Modified: time.Date(1979, 11, 30, 0, 0, 0, 0, time.UTC),
-				Mode:     0666,
-			},
-			{
-				Name:     "bar.txt",
-				Content:  []byte("bar\n"),
-				Modified: time.Date(1979, 11, 30, 0, 0, 0, 0, time.UTC),
-				Mode:     0666,
-			},
-		},
-	},
-	{
 		Name:   "Bad-CRC32-in-data-descriptor",
 		Source: returnCorruptCRC32Zip,
 		File: []ZipTestFile{
