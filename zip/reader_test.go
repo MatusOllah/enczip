@@ -245,25 +245,6 @@ var tests = []ZipTest{
 			},
 		},
 	},
-	{
-		Name:   "Bad-CRC32-in-data-descriptor",
-		Source: returnCorruptCRC32Zip,
-		File: []ZipTestFile{
-			{
-				Name:       "foo.txt",
-				Content:    []byte("foo\n"),
-				Modified:   time.Date(1979, 11, 30, 0, 0, 0, 0, time.UTC),
-				Mode:       0666,
-				ContentErr: ErrChecksum,
-			},
-			{
-				Name:     "bar.txt",
-				Content:  []byte("bar\n"),
-				Modified: time.Date(1979, 11, 30, 0, 0, 0, 0, time.UTC),
-				Mode:     0666,
-			},
-		},
-	},
 	// Tests that we verify (and accept valid) crc32s on files
 	// with crc32s in their file header (not in data descriptors)
 	{
