@@ -84,14 +84,14 @@ const (
 //
 // [ZIP specification]: https://support.pkware.com/pkzip/appnote
 type FileHeader struct {
-	// Name is the name of the file.
+	// Name is the decoded name of the file.
 	//
 	// It must be a relative path, not start with a drive letter (such as "C:"),
 	// and must use forward slashes instead of back slashes. A trailing slash
 	// indicates that this file is a directory and should have no data.
 	Name string
 
-	// Comment is any arbitrary user-defined string shorter than 64KiB.
+	// Comment is any arbitrary user-defined decoded string shorter than 64KiB.
 	Comment string
 
 	// NonUTF8 indicates that Name and Comment are not encoded in UTF-8.

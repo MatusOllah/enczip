@@ -13,6 +13,7 @@ import (
 	"os"
 
 	"github.com/MatusOllah/enczip/zip"
+	"golang.org/x/text/encoding/japanese"
 )
 
 func ExampleWriter() {
@@ -49,8 +50,8 @@ func ExampleWriter() {
 }
 
 func ExampleReader() {
-	// Open a zip archive for reading.
-	r, err := zip.OpenReader("testdata/readme.zip")
+	// Open a Shift-JIS zip archive for reading.
+	r, err := zip.OpenReader("testdata/shiftjis.zip", japanese.ShiftJIS)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,15 +66,17 @@ func ExampleReader() {
 			log.Fatal(err)
 		}
 		_, err = io.CopyN(os.Stdout, rc, 68)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			log.Fatal(err)
 		}
 		rc.Close()
 		fmt.Println()
 	}
 	// Output:
-	// Contents of README:
-	// This is the source code repository for the Go programming language.
+	// Contents of 初音ミクが好きです.txt:
+	// oo ee oo~
+	// Contents of サブフォルダ/readme.txt:
+	// Hello world!
 }
 
 func ExampleWriter_RegisterCompressor() {

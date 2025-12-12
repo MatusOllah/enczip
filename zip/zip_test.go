@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/text/encoding"
 )
 
 func TestModTime(t *testing.T) {
@@ -554,7 +556,7 @@ func testZip64(t testing.TB, size int64) *rleBuffer {
 	}
 
 	// read back zip file and check that we get to the end of it
-	r, err := NewReader(buf, buf.Size())
+	r, err := NewReader(buf, buf.Size(), encoding.Nop)
 	if err != nil {
 		t.Fatal("reader:", err)
 	}
@@ -623,7 +625,7 @@ func testValidHeader(h *FileHeader, t *testing.T) {
 	}
 
 	b := buf.Bytes()
-	zf, err := NewReader(bytes.NewReader(b), int64(len(b)))
+	zf, err := NewReader(bytes.NewReader(b), int64(len(b)), encoding.Nop)
 	if err != nil {
 		t.Fatalf("got %v, expected nil", err)
 	}

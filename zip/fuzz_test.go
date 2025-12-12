@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"golang.org/x/text/encoding"
 )
 
 func FuzzReader(f *testing.F) {
@@ -29,7 +31,7 @@ func FuzzReader(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, b []byte) {
-		r, err := NewReader(bytes.NewReader(b), int64(len(b)))
+		r, err := NewReader(bytes.NewReader(b), int64(len(b)), encoding.Nop)
 		if err != nil {
 			return
 		}

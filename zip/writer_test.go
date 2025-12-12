@@ -18,6 +18,8 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"golang.org/x/text/encoding"
 )
 
 // TODO(adg): a more sophisticated test suite
@@ -97,7 +99,7 @@ func TestWriter(t *testing.T) {
 	}
 
 	// read it back
-	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +149,7 @@ func TestWriterComment(t *testing.T) {
 		}
 
 		// read it back
-		r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+		r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), encoding.Nop)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -226,7 +228,7 @@ func TestWriterUTF8(t *testing.T) {
 	}
 
 	// read it back
-	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +290,7 @@ func TestWriterOffset(t *testing.T) {
 	}
 
 	// read it back
-	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +382,7 @@ func TestWriterCopy(t *testing.T) {
 	}
 
 	// read it back
-	src, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	src, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +403,7 @@ func TestWriterCopy(t *testing.T) {
 	}
 
 	// read the new one back
-	r, err := NewReader(bytes.NewReader(buf2.Bytes()), int64(buf2.Len()))
+	r, err := NewReader(bytes.NewReader(buf2.Bytes()), int64(buf2.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -490,7 +492,7 @@ func TestWriterCreateRaw(t *testing.T) {
 	}
 
 	// read it back
-	r, err := NewReader(bytes.NewReader(archive.Bytes()), int64(archive.Len()))
+	r, err := NewReader(bytes.NewReader(archive.Bytes()), int64(archive.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -637,7 +639,7 @@ func TestWriterAddFS(t *testing.T) {
 	tests = append(tests[:2:2], WriteTest{Name: "subfolder", Mode: 0o555 | os.ModeDir}, tests[2])
 
 	// read it back
-	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}

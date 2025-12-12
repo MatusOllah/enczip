@@ -19,6 +19,8 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"golang.org/x/text/encoding"
 )
 
 type ZipTest struct {
@@ -533,7 +535,7 @@ func readTestZip(t *testing.T, zt ZipTest) {
 	var raw []byte
 	if zt.Source != nil {
 		rat, size := zt.Source()
-		z, err = NewReader(rat, size)
+		z, err = NewReader(rat, size, encoding.Nop)
 		raw = make([]byte, size)
 		if _, err := rat.ReadAt(raw, 0); err != nil {
 			t.Errorf("ReadAt error=%v", err)
@@ -553,7 +555,7 @@ func readTestZip(t *testing.T, zt ZipTest) {
 			}
 		*/
 		var rc *ReadCloser
-		rc, err = OpenReader(path)
+		rc, err = OpenReader(path, encoding.Nop)
 		if err == nil {
 			defer rc.Close()
 			z = &rc.Reader
@@ -730,7 +732,7 @@ func TestInvalidFiles(t *testing.T) {
 	b := make([]byte, size)
 
 	// zeroes
-	_, err := NewReader(bytes.NewReader(b), size)
+	_, err := NewReader(bytes.NewReader(b), size, encoding.Nop)
 	if err != ErrFormat {
 		t.Errorf("zeroes: error=%v, want %v", err, ErrFormat)
 	}
@@ -741,13 +743,13 @@ func TestInvalidFiles(t *testing.T) {
 	for i := 0; i < size-4; i += 4 {
 		copy(b[i:i+4], sig)
 	}
-	_, err = NewReader(bytes.NewReader(b), size)
+	_, err = NewReader(bytes.NewReader(b), size, encoding.Nop)
 	if err != ErrFormat {
 		t.Errorf("sigs: error=%v, want %v", err, ErrFormat)
 	}
 
 	// negative size
-	_, err = NewReader(bytes.NewReader([]byte("foobar")), -1)
+	_, err = NewReader(bytes.NewReader([]byte("foobar")), -1, encoding.Nop)
 	if err == nil {
 		t.Errorf("archive/zip.NewReader: expected error when negative size is passed")
 	}
@@ -760,13 +762,6 @@ func messWith(fileName string, corrupter func(b []byte)) (r io.ReaderAt, size in
 	}
 	corrupter(data)
 	return bytes.NewReader(data), int64(len(data))
-}
-
-func returnCorruptCRC32Zip() (r io.ReaderAt, size int64) {
-	return messWith("go-with-datadesc-sig.zip", func(b []byte) {
-		// Corrupt one of the CRC32s in the data descriptor:
-		b[0x2d]++
-	})
 }
 
 func returnCorruptNotStreamedZip() (r io.ReaderAt, size int64) {
@@ -988,7 +983,7 @@ func biggestZipBytes() []byte {
 func returnBigZipBytes() (r io.ReaderAt, size int64) {
 	b := biggestZipBytes()
 	for i := 0; i < 2; i++ {
-		r, err := NewReader(bytes.NewReader(b), int64(len(b)))
+		r, err := NewReader(bytes.NewReader(b), int64(len(b)), encoding.Nop)
 		if err != nil {
 			panic(err)
 		}
@@ -1019,7 +1014,7 @@ func TestIssue8186(t *testing.T) {
 	}
 	for i, s := range dirEnts {
 		var f File
-		err := readDirectoryHeader(&f, strings.NewReader(s))
+		err := readDirectoryHeader(&f, strings.NewReader(s), encoding.Nop)
 		if err != nil {
 			t.Errorf("error reading #%d: %v", i, err)
 		}
@@ -1043,7 +1038,7 @@ func TestIssue10957(t *testing.T) {
 		"0000000000000000\v\x00\x00\x00" +
 		"\x00\x0000PK\x05\x06000000\x05\x00\xfd\x00\x00\x00" +
 		"\v\x00\x00\x00\x00\x00")
-	z, err := NewReader(bytes.NewReader(data), int64(len(data)))
+	z, err := NewReader(bytes.NewReader(data), int64(len(data)), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1070,7 +1065,7 @@ func TestIssue10956(t *testing.T) {
 	data := []byte("PK\x06\x06PK\x06\a0000\x00\x00\x00\x00\x00\x00\x00\x00" +
 		"0000PK\x05\x06000000000000" +
 		"0000\v\x00000\x00\x00\x00\x00\x00\x00\x000")
-	r, err := NewReader(bytes.NewReader(data), int64(len(data)))
+	r, err := NewReader(bytes.NewReader(data), int64(len(data)), encoding.Nop)
 	if err == nil {
 		t.Errorf("got nil error, want ErrFormat")
 	}
@@ -1087,7 +1082,7 @@ func TestIssue11146(t *testing.T) {
 		"0000\b0\b\x00000000000000" +
 		"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x000000PK\x05\x06\x00\x00" +
 		"\x00\x0000\x01\x00\x26\x00\x00\x008\x00\x00\x00\x00\x00")
-	z, err := NewReader(bytes.NewReader(data), int64(len(data)))
+	z, err := NewReader(bytes.NewReader(data), int64(len(data)), encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1133,7 +1128,7 @@ func TestIssue12449(t *testing.T) {
 		0x00, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 	// Read in the archive.
-	_, err := NewReader(bytes.NewReader(data), int64(len(data)))
+	_, err := NewReader(bytes.NewReader(data), int64(len(data)), encoding.Nop)
 	if err != nil {
 		t.Errorf("Error reading the archive: %v", err)
 	}
@@ -1156,7 +1151,7 @@ func TestFS(t *testing.T) {
 		test := test
 		t.Run(test.file, func(t *testing.T) {
 			t.Parallel()
-			z, err := OpenReader(test.file)
+			z, err := OpenReader(test.file, encoding.Nop)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1190,7 +1185,7 @@ func TestFSWalk(t *testing.T) {
 		test := test
 		t.Run(test.file, func(t *testing.T) {
 			t.Parallel()
-			z, err := OpenReader(test.file)
+			z, err := OpenReader(test.file, encoding.Nop)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1244,7 +1239,7 @@ func TestFSWalkBadFile(t *testing.T) {
 
 	}
 
-	zr, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	zr, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatalf("create zip reader: %v", err)
 
@@ -1267,7 +1262,7 @@ func TestFSWalkBadFile(t *testing.T) {
 
 func TestFSModTime(t *testing.T) {
 	t.Parallel()
-	z, err := OpenReader("testdata/subdir.zip")
+	z, err := OpenReader("testdata/subdir.zip", encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1329,7 +1324,7 @@ func TestCVE202133196(t *testing.T) {
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 		0xff, 0xff, 0xff, 0x00, 0x00,
 	}
-	_, err := NewReader(bytes.NewReader(data), int64(len(data)))
+	_, err := NewReader(bytes.NewReader(data), int64(len(data)), encoding.Nop)
 	if err != ErrFormat {
 		t.Fatalf("unexpected error, got: %v, want: %v", err, ErrFormat)
 	}
@@ -1347,7 +1342,7 @@ func TestCVE202133196(t *testing.T) {
 	if err := w.Close(); err != nil {
 		t.Fatalf("Writer.Close failed: %s", err)
 	}
-	r, err := NewReader(bytes.NewReader(b.Bytes()), int64(b.Len()))
+	r, err := NewReader(bytes.NewReader(b.Bytes()), int64(b.Len()), encoding.Nop)
 	if err != nil {
 		t.Fatalf("NewReader failed: %s", err)
 	}
@@ -1368,14 +1363,14 @@ func TestCVE202139293(t *testing.T) {
 		0x00, 0x00, 0x00, 0x50, 0x4b, 0x05, 0x06, 0x00, 0x31, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff,
 		0xff, 0x50, 0xfe, 0x00, 0xff, 0x00, 0x3a, 0x00, 0x00, 0x00, 0xff,
 	}
-	_, err := NewReader(bytes.NewReader(data), int64(len(data)))
+	_, err := NewReader(bytes.NewReader(data), int64(len(data)), encoding.Nop)
 	if err != ErrFormat {
 		t.Fatalf("unexpected error, got: %v, want: %v", err, ErrFormat)
 	}
 }
 
 func TestUnderSize(t *testing.T) {
-	z, err := OpenReader("testdata/readme.zip")
+	z, err := OpenReader("testdata/readme.zip", encoding.Nop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1403,7 +1398,7 @@ func TestUnderSize(t *testing.T) {
 
 func TestIssue54801(t *testing.T) {
 	for _, input := range []string{"testdata/readme.zip", "testdata/dd.zip"} {
-		z, err := OpenReader(input)
+		z, err := OpenReader(input, encoding.Nop)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1485,7 +1480,7 @@ func TestCompressedDirectory(t *testing.T) {
 		0x00, 0x02, 0x00, 0x7d, 0x00, 0x00, 0x00, 0xba,
 		0x00, 0x00, 0x00, 0x00, 0x00,
 	}
-	r, err := NewReader(bytes.NewReader(data), int64(len(data)))
+	r, err := NewReader(bytes.NewReader(data), int64(len(data)), encoding.Nop)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1538,5 +1533,5 @@ func TestBaseOffsetPlusOverflow(t *testing.T) {
 	// Previously, this would trigger a panic as we attempt to read from
 	// an io.SectionReader which would access a slice at a negative offset
 	// as the section reader offset & size were < 0.
-	NewReader(bytes.NewReader(data), int64(len(data))+1875)
+	NewReader(bytes.NewReader(data), int64(len(data))+1875, encoding.Nop)
 }

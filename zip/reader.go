@@ -19,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/text/encoding"
 )
 
 //var zipinsecurepath = godebug.New("zipinsecurepath")
@@ -64,7 +66,8 @@ type File struct {
 	zip64        bool  // zip64 extended information extra field presence
 }
 
-// OpenReader will open the Zip file specified by name and return a ReadCloser.
+// OpenReader will open the Zip file specified by name and
+// the text encoding and return a ReadCloser.
 //
 // If any file inside the archive uses a non-local name
 // (as defined by [filepath.IsLocal]) or a name containing backslashes
@@ -73,7 +76,7 @@ type File struct {
 // A future version of Go may introduce this behavior by default.
 // Programs that want to accept non-local names can ignore
 // the ErrInsecurePath error and use the returned reader.
-func OpenReader(name string) (*ReadCloser, error) {
+func OpenReader(name string, enc encoding.Encoding) (*ReadCloser, error) {
 	f, err := os.Open(name)
 	if err != nil {
 		return nil, err
@@ -84,7 +87,7 @@ func OpenReader(name string) (*ReadCloser, error) {
 		return nil, err
 	}
 	r := new(ReadCloser)
-	if err = r.init(f, fi.Size()); err != nil && err != ErrInsecurePath {
+	if err = r.init(f, fi.Size(), enc); err != nil && err != ErrInsecurePath {
 		f.Close()
 		return nil, err
 	}
@@ -93,7 +96,7 @@ func OpenReader(name string) (*ReadCloser, error) {
 }
 
 // NewReader returns a new [Reader] reading from r, which is assumed to
-// have the given size in bytes.
+// have the given size in bytes and the text encoding.
 //
 // If any file inside the archive uses a non-local name
 // (as defined by [filepath.IsLocal]) or a name containing backslashes
@@ -102,20 +105,20 @@ func OpenReader(name string) (*ReadCloser, error) {
 // A future version of Go may introduce this behavior by default.
 // Programs that want to accept non-local names can ignore
 // the [ErrInsecurePath] error and use the returned reader.
-func NewReader(r io.ReaderAt, size int64) (*Reader, error) {
+func NewReader(r io.ReaderAt, size int64, enc encoding.Encoding) (*Reader, error) {
 	if size < 0 {
 		return nil, errors.New("zip: size cannot be negative")
 	}
 	zr := new(Reader)
 	var err error
-	if err = zr.init(r, size); err != nil && err != ErrInsecurePath {
+	if err = zr.init(r, size, enc); err != nil && err != ErrInsecurePath {
 		return nil, err
 	}
 	return zr, err
 }
 
-func (r *Reader) init(rdr io.ReaderAt, size int64) error {
-	end, baseOffset, err := readDirectoryEnd(rdr, size)
+func (r *Reader) init(rdr io.ReaderAt, size int64, enc encoding.Encoding) error {
+	end, baseOffset, err := readDirectoryEnd(rdr, size, enc)
 	if err != nil {
 		return err
 	}
@@ -143,7 +146,7 @@ func (r *Reader) init(rdr io.ReaderAt, size int64) error {
 	// the file count modulo 65536 is incorrect.
 	for {
 		f := &File{zip: r, zipr: rdr}
-		err = readDirectoryHeader(f, buf)
+		err = readDirectoryHeader(f, buf, enc)
 		if err == ErrFormat || err == io.ErrUnexpectedEOF {
 			break
 		}
@@ -354,7 +357,7 @@ func (f *File) findBodyOffset() (int64, error) {
 // readDirectoryHeader attempts to read a directory header from r.
 // It returns io.ErrUnexpectedEOF if it cannot read a complete header,
 // and ErrFormat if it doesn't find a valid header signature.
-func readDirectoryHeader(f *File, r io.Reader) error {
+func readDirectoryHeader(f *File, r io.Reader, enc encoding.Encoding) error {
 	var buf [directoryHeaderLen]byte
 	if _, err := io.ReadFull(r, buf[:]); err != nil {
 		return err
@@ -384,13 +387,23 @@ func readDirectoryHeader(f *File, r io.Reader) error {
 	if _, err := io.ReadFull(r, d); err != nil {
 		return err
 	}
-	f.Name = string(d[:filenameLen])
+	// Decode filename and comment.
+	dec := enc.NewDecoder()
+	name, err := dec.Bytes(d[:filenameLen])
+	if err != nil {
+		return err
+	}
+	f.Name = string(name)
 	f.Extra = d[filenameLen : filenameLen+extraLen]
-	f.Comment = string(d[filenameLen+extraLen:])
+	comment, err := dec.Bytes(d[filenameLen+extraLen:])
+	if err != nil {
+		return err
+	}
+	f.Comment = string(comment)
 
 	// Determine the character encoding.
-	utf8Valid1, utf8Require1 := detectUTF8(f.Name)
-	utf8Valid2, utf8Require2 := detectUTF8(f.Comment)
+	utf8Valid1, utf8Require1 := detectUTF8(string(d[:filenameLen]))
+	utf8Valid2, utf8Require2 := detectUTF8(string(d[filenameLen+extraLen:]))
 	switch {
 	case !utf8Valid1 || !utf8Valid2:
 		// Name and Comment definitely not UTF-8.
@@ -565,7 +578,7 @@ func readDataDescriptor(r io.Reader, f *File) error {
 	return nil
 }
 
-func readDirectoryEnd(r io.ReaderAt, size int64) (dir *directoryEnd, baseOffset int64, err error) {
+func readDirectoryEnd(r io.ReaderAt, size int64, enc encoding.Encoding) (dir *directoryEnd, baseOffset int64, err error) {
 	// look for directoryEndSignature in the last 1k, then in the last 65k
 	var buf []byte
 	var directoryEndOffset int64
@@ -602,7 +615,11 @@ func readDirectoryEnd(r io.ReaderAt, size int64) (dir *directoryEnd, baseOffset 
 	if l > len(b) {
 		return nil, 0, errors.New("zip: invalid comment length")
 	}
-	d.comment = string(b[:l])
+	comment, err := enc.NewDecoder().Bytes(b[:l])
+	if err != nil {
+		return nil, 0, err
+	}
+	d.comment = string(comment)
 
 	// These values mean that the file can be a zip64 file
 	if d.directoryRecords == 0xffff || d.directorySize == 0xffff || d.directoryOffset == 0xffffffff {
@@ -636,7 +653,7 @@ func readDirectoryEnd(r io.ReaderAt, size int64) (dir *directoryEnd, baseOffset 
 	if baseOffset > 0 {
 		off := int64(d.directoryOffset)
 		rs := io.NewSectionReader(r, off, size-off)
-		if readDirectoryHeader(&File{}, rs) == nil {
+		if readDirectoryHeader(&File{}, rs, enc) == nil {
 			baseOffset = 0
 		}
 	}
