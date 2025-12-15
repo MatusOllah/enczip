@@ -411,7 +411,7 @@ func (ss *suffixSaver) Write(p []byte) (n int, err error) {
 // f is also responsible for closing w.
 func generatesZip64(t *testing.T, f func(w *Writer)) bool {
 	ss := &suffixSaver{keep: 10 << 20}
-	w := NewWriter(ss)
+	w := NewWriter(ss, encoding.Nop)
 	f(w)
 	return suffixIsZip64(t, ss)
 }
@@ -521,7 +521,7 @@ func testZip64(t testing.TB, size int64) *rleBuffer {
 	chunks := int(size / chunkSize)
 	// write size bytes plus "END\n" to a zip file
 	buf := new(rleBuffer)
-	w := NewWriter(buf)
+	w := NewWriter(buf, encoding.Nop)
 	f, err := w.CreateHeader(&FileHeader{
 		Name:   "huge.txt",
 		Method: Store,
@@ -611,7 +611,7 @@ func testZip64DirectoryRecordLength(buf *rleBuffer, t *testing.T) {
 
 func testValidHeader(h *FileHeader, t *testing.T) {
 	var buf bytes.Buffer
-	z := NewWriter(&buf)
+	z := NewWriter(&buf, encoding.Nop)
 
 	f, err := z.CreateHeader(h)
 	if err != nil {
@@ -681,7 +681,7 @@ func TestHeaderTooLongErr(t *testing.T) {
 
 	// write a zip file
 	buf := new(bytes.Buffer)
-	w := NewWriter(buf)
+	w := NewWriter(buf, encoding.Nop)
 
 	for _, test := range headerTests {
 		h := &FileHeader{

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/japanese"
 )
 
 // TODO(adg): a more sophisticated test suite
@@ -88,7 +89,7 @@ func TestWriter(t *testing.T) {
 
 	// write a zip file
 	buf := new(bytes.Buffer)
-	w := NewWriter(buf)
+	w := NewWriter(buf, encoding.Nop)
 
 	for _, wt := range writeTests {
 		testCreate(t, w, &wt)
@@ -123,7 +124,7 @@ func TestWriterComment(t *testing.T) {
 	for _, test := range tests {
 		// write a zip file
 		buf := new(bytes.Buffer)
-		w := NewWriter(buf)
+		w := NewWriter(buf, encoding.Nop)
 		if err := w.SetComment(test.comment); err != nil {
 			if test.ok {
 				t.Fatalf("SetComment: unexpected error %v", err)
@@ -207,7 +208,7 @@ func TestWriterUTF8(t *testing.T) {
 
 	// write a zip file
 	buf := new(bytes.Buffer)
-	w := NewWriter(buf)
+	w := NewWriter(buf, encoding.Nop)
 
 	for _, test := range utf8Tests {
 		h := &FileHeader{
@@ -240,13 +241,69 @@ func TestWriterUTF8(t *testing.T) {
 	}
 }
 
+func TestWriterShiftJIS(t *testing.T) {
+	// Everything is Shift-JIS'd, UTF-8 flag must not be set
+	sjisTests := []struct {
+		name    string
+		comment string
+		flags   uint16
+	}{
+		{
+			name:    "hi, こんにちわ",
+			comment: "in the world",
+			flags:   0x8,
+		},
+		{
+			name:    "日本語.txt",
+			comment: "in the 世界",
+			flags:   0x008,
+		},
+	}
+
+	// write a zip file
+	buf := new(bytes.Buffer)
+	w := NewWriter(buf, japanese.ShiftJIS)
+
+	for _, test := range sjisTests {
+		h := &FileHeader{
+			Name:    test.name,
+			Comment: test.comment,
+			NonUTF8: true,
+			Method:  Deflate,
+		}
+		w, err := w.CreateHeader(h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Write([]byte{})
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// read it back
+	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()), japanese.ShiftJIS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, test := range sjisTests {
+		flags := r.File[i].Flags
+		name := r.File[i].Name
+		comment := r.File[i].Comment
+		if flags != test.flags || name != test.name || comment != test.comment {
+			t.Errorf("CreateHeader(name=%q comment=%q): name=%q, comment=%q, flags=%#x, want %#x", test.name, test.comment, name, comment, flags, test.flags)
+		}
+	}
+}
+
 func TestWriterTime(t *testing.T) {
 	var buf bytes.Buffer
 	h := &FileHeader{
 		Name:     "test.txt",
 		Modified: time.Date(2017, 10, 31, 21, 11, 57, 0, timeZone(-7*time.Hour)),
 	}
-	w := NewWriter(&buf)
+	w := NewWriter(&buf, encoding.Nop)
 	if _, err := w.CreateHeader(h); err != nil {
 		t.Fatalf("unexpected CreateHeader error: %v", err)
 	}
@@ -278,7 +335,7 @@ func TestWriterOffset(t *testing.T) {
 	buf := new(bytes.Buffer)
 	existingData := []byte{1, 2, 3, 1, 2, 3, 1, 2, 3}
 	n, _ := buf.Write(existingData)
-	w := NewWriter(buf)
+	w := NewWriter(buf, encoding.Nop)
 	w.SetOffset(int64(n))
 
 	for _, wt := range writeTests {
@@ -301,7 +358,7 @@ func TestWriterOffset(t *testing.T) {
 
 func TestWriterFlush(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewWriter(struct{ io.Writer }{&buf})
+	w := NewWriter(struct{ io.Writer }{&buf}, encoding.Nop)
 	_, err := w.Create("foo")
 	if err != nil {
 		t.Fatal(err)
@@ -318,7 +375,7 @@ func TestWriterFlush(t *testing.T) {
 }
 
 func TestWriterDir(t *testing.T) {
-	w := NewWriter(io.Discard)
+	w := NewWriter(io.Discard, encoding.Nop)
 	dw, err := w.Create("dir/")
 	if err != nil {
 		t.Fatal(err)
@@ -333,7 +390,7 @@ func TestWriterDir(t *testing.T) {
 
 func TestWriterDirAttributes(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewWriter(&buf)
+	w := NewWriter(&buf, encoding.Nop)
 	if _, err := w.CreateHeader(&FileHeader{
 		Name:               "dir/",
 		Method:             Deflate,
@@ -373,7 +430,7 @@ func TestWriterDirAttributes(t *testing.T) {
 func TestWriterCopy(t *testing.T) {
 	// make a zip file
 	buf := new(bytes.Buffer)
-	w := NewWriter(buf)
+	w := NewWriter(buf, encoding.Nop)
 	for _, wt := range writeTests {
 		testCreate(t, w, &wt)
 	}
@@ -392,7 +449,7 @@ func TestWriterCopy(t *testing.T) {
 
 	// make a new zip file copying the old compressed data.
 	buf2 := new(bytes.Buffer)
-	dst := NewWriter(buf2)
+	dst := NewWriter(buf2, encoding.Nop)
 	for _, f := range src.File {
 		if err := dst.Copy(f); err != nil {
 			t.Fatal(err)
@@ -437,7 +494,7 @@ func TestWriterCreateRaw(t *testing.T) {
 
 	// write a zip file
 	archive := new(bytes.Buffer)
-	w := NewWriter(archive)
+	w := NewWriter(archive, encoding.Nop)
 
 	for i := range files {
 		f := &files[i]
@@ -580,7 +637,7 @@ func BenchmarkCompressedZipGarbage(b *testing.B) {
 
 	runOnce := func(buf *bytes.Buffer) {
 		buf.Reset()
-		zw := NewWriter(buf)
+		zw := NewWriter(buf, encoding.Nop)
 		for j := 0; j < 3; j++ {
 			w, _ := zw.CreateHeader(&FileHeader{
 				Name:   "foo",
@@ -619,7 +676,7 @@ func writeTestsToFS(tests []WriteTest) fs.FS {
 
 func TestWriterAddFS(t *testing.T) {
 	buf := new(bytes.Buffer)
-	w := NewWriter(buf)
+	w := NewWriter(buf, encoding.Nop)
 	tests := []WriteTest{
 		{Name: "emptyfolder", Mode: 0o755 | os.ModeDir},
 		{Name: "file.go", Data: []byte("hello"), Mode: 0644},
@@ -653,7 +710,7 @@ func TestWriterAddFS(t *testing.T) {
 
 func TestIssue61875(t *testing.T) {
 	buf := new(bytes.Buffer)
-	w := NewWriter(buf)
+	w := NewWriter(buf, encoding.Nop)
 	tests := []WriteTest{
 		{
 			Name:   "symlink",

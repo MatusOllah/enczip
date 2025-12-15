@@ -13,6 +13,7 @@ import (
 	"os"
 
 	"github.com/MatusOllah/enczip/zip"
+	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/japanese"
 )
 
@@ -20,17 +21,17 @@ func ExampleWriter() {
 	// Create a buffer to write our archive to.
 	buf := new(bytes.Buffer)
 
-	// Create a new zip archive.
-	w := zip.NewWriter(buf)
+	// Create a new Shift-JIS zip archive.
+	w := zip.NewWriter(buf, japanese.ShiftJIS)
 
 	// Add some files to the archive.
 	var files = []struct {
 		Name, Body string
 	}{
-		{"readme.txt", "This archive contains some text files."},
-		{"gopher.txt", "Gopher names:\nGeorge\nGeoffrey\nGonzo"},
-		{"todo.txt", "Get animal handling licence.\nWrite more examples."},
+		{"お読みください.txt", "このアーカイブにはいくつかのテキストファイルが含まれています。"},
+		{"ボーカロイド一覧.txt", "ボーカロイドの名前:\nミク\nリン\nレン\nルカ\nMEIKO\nKAITO"},
 	}
+
 	for _, file := range files {
 		f, err := w.Create(file.Name)
 		if err != nil {
@@ -86,7 +87,7 @@ func ExampleWriter_RegisterCompressor() {
 	buf := new(bytes.Buffer)
 
 	// Create a new zip archive.
-	w := zip.NewWriter(buf)
+	w := zip.NewWriter(buf, encoding.Nop)
 
 	// Register a custom Deflate compressor.
 	w.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {

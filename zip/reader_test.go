@@ -1221,7 +1221,7 @@ func TestFSWalkBadFile(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
-	zw := NewWriter(&buf)
+	zw := NewWriter(&buf, encoding.Nop)
 	hdr := &FileHeader{Name: "."}
 	hdr.SetMode(fs.ModeDir | 0o755)
 	w, err := zw.CreateHeader(hdr)
@@ -1332,7 +1332,7 @@ func TestCVE202133196(t *testing.T) {
 	// Also check that an archive containing a handful of empty
 	// files doesn't cause an issue
 	b := bytes.NewBuffer(nil)
-	w := NewWriter(b)
+	w := NewWriter(b, encoding.Nop)
 	for i := 0; i < 5; i++ {
 		_, err := w.Create("")
 		if err != nil {

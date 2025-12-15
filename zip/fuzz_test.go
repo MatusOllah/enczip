@@ -63,7 +63,7 @@ func FuzzReader(f *testing.F) {
 			return
 		}
 
-		w := NewWriter(io.Discard)
+		w := NewWriter(io.Discard, encoding.Nop)
 		for _, f := range files {
 			ww, err := w.CreateHeader(f.header)
 			if err != nil {

@@ -14,6 +14,8 @@ import (
 	"io/fs"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/text/encoding"
 )
 
 var (
@@ -28,11 +30,13 @@ type Writer struct {
 	last        *fileWriter
 	closed      bool
 	compressors map[uint16]Compressor
-	comment     string
+	comment     string // already encoded
 
 	// testHookCloseSizeOffset if non-nil is called with the size
 	// of offset of the central directory at Close.
 	testHookCloseSizeOffset func(size, offset uint64)
+
+	enc encoding.Encoding
 }
 
 type header struct {
@@ -42,8 +46,8 @@ type header struct {
 }
 
 // NewWriter returns a new [Writer] writing a zip file to w.
-func NewWriter(w io.Writer) *Writer {
-	return &Writer{cw: &countWriter{w: bufio.NewWriter(w)}}
+func NewWriter(w io.Writer, enc encoding.Encoding) *Writer {
+	return &Writer{cw: &countWriter{w: bufio.NewWriter(w)}, enc: enc}
 }
 
 // SetOffset sets the offset of the beginning of the zip data within the
@@ -66,10 +70,16 @@ func (w *Writer) Flush() error {
 // SetComment sets the end-of-central-directory comment field.
 // It can only be called before [Writer.Close].
 func (w *Writer) SetComment(comment string) error {
-	if len(comment) > uint16max {
+	encoder := w.enc.NewEncoder()
+	encoded, err := encoder.String(comment)
+	if err != nil {
+		return err
+	}
+
+	if len(encoded) > uint16max {
 		return errors.New("zip: Writer.Comment too long")
 	}
-	w.comment = comment
+	w.comment = encoded
 	return nil
 }
 
@@ -291,6 +301,17 @@ func (w *Writer) CreateHeader(fh *FileHeader) (io.Writer, error) {
 	//
 	// For the case, where the user explicitly wants to specify the encoding
 	// as UTF-8, they will need to set the flag bit themselves.
+	encoder := w.enc.NewEncoder()
+	var err error
+	fh.Name, err = encoder.String(fh.Name)
+	if err != nil {
+		return nil, err
+	}
+	fh.Comment, err = encoder.String(fh.Comment)
+	if err != nil {
+		return nil, err
+	}
+
 	utf8Valid1, utf8Require1 := detectUTF8(fh.Name)
 	utf8Valid2, utf8Require2 := detectUTF8(fh.Comment)
 	switch {
@@ -434,6 +455,7 @@ func writeHeader(w io.Writer, h *header) error {
 // [Writer.CreateHeader], [Writer.CreateRaw], or [Writer.Close].
 //
 // In contrast to [Writer.CreateHeader], the bytes passed to Writer are not compressed.
+// The [FileHeader.Name] and [FileHeader.Comment] fields are raw and unencoded.
 //
 // CreateRaw's argument is stored in w. If the argument is a pointer to the embedded
 // [FileHeader] in a [File] obtained from a [Reader] created from in-memory data,
