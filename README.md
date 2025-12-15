@@ -1,5 +1,7 @@
 # 📦 enczip
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/MatusOllah/enczip/zip.svg)](https://pkg.go.dev/github.com/MatusOllah/enczip/zip) [![CI (Go)](https://github.com/MatusOllah/enczip/actions/workflows/ci.yml/badge.svg)](https://github.com/MatusOllah/enczip/actions/workflows/ci.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/MatusOllah/enczip)](https://goreportcard.com/report/github.com/MatusOllah/enczip) [![GitHub license](https://img.shields.io/github/license/MatusOllah/enczip)](LICENSE) ![Made in Slovakia](https://raw.githubusercontent.com/pedromxavier/flag-badges/refs/heads/main/badges/SK.svg)
+
 **enczip** is a fork of the Go stdlib package `archive/zip` to add support for various text encodings other than just UTF-8.
 
 ## 🤔 Why?
