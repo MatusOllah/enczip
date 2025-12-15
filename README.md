@@ -18,6 +18,98 @@ Thus, **enczip** - a fork of `archive/zip` with proper handling for non-UTF-8 fi
 
 tl;dr: Shift-JIS sucks. UTAU should use UTF-8 already.
 
+## 🌟 Usage
+
+enczip is very similar to the original `archive/zip`, except that functions also accept an `encoding.Encoding` value.
+
+### 📖 Reading
+
+```go
+package main
+
+import (
+    "bytes"
+    "fmt"
+    "io"
+    "os"
+
+    "github.com/MatusOllah/enczip/zip"
+    "golang.org/x/text/encoding/japanese"
+)
+
+func main() {
+    // Open a Shift-JIS zip archive for reading.
+    r, err := zip.OpenReader("testdata/shiftjis.zip", japanese.ShiftJIS)
+    if err != nil {
+        panic(err)
+    }
+    defer r.Close()
+
+    // Do anything we want with the archive
+    // e.g. iterate, FS, ...
+    for _, f := range r.File {
+        fmt.Printf("Contents of %s:\n", f.Name)
+        rc, err := f.Open()
+        if err != nil {
+            panic(err)
+        }
+        _, err = io.CopyN(os.Stdout, rc, 68)
+        if err != nil && err != io.EOF {
+            panic(err)
+        }
+        rc.Close()
+        fmt.Println()
+    }
+}
+```
+
+### ✏️ Writing
+
+```go
+package main
+
+import (
+    "bytes"
+    "fmt"
+    "io"
+    "os"
+
+    "github.com/MatusOllah/enczip/zip"
+    "golang.org/x/text/encoding/japanese"
+)
+
+func main() {
+    buf := new(bytes.Buffer)
+
+    // Create a new Shift-JIS zip archive (why though?)
+    w := zip.NewWriter(buf, japanese.ShiftJIS)
+
+    // Add some files to the archive.
+    var files = []struct {
+        Name, Body string
+    }{
+        {"お読みください.txt", "このアーカイブにはいくつかのテキストファイルが含まれています。"},
+        {"ボーカロイド一覧.txt", "ボーカロイドの名前:\nミク\nリン\nレン\nルカ\nMEIKO\nKAITO"},
+    }
+    for _, file := range files {
+        f, err := w.Create(file.Name)
+        if err != nil {
+            panic(err)
+        }
+        _, err = f.Write([]byte(file.Body))
+        if err != nil {
+            panic(err)
+        }
+    }
+
+    if err := w.Close(); err != nil {
+        panic(err)
+    }
+}
+```
+
+enczip works of course with any text encoding, not just Shift-JIS :)
+
 ## ⚖️ License
 
 Copyright © 2025 Matúš Ollah
