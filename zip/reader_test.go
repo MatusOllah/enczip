@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/japanese"
 )
 
 type ZipTest struct {
@@ -1534,4 +1536,44 @@ func TestBaseOffsetPlusOverflow(t *testing.T) {
 	// an io.SectionReader which would access a slice at a negative offset
 	// as the section reader offset & size were < 0.
 	NewReader(bytes.NewReader(data), int64(len(data))+1875, encoding.Nop)
+}
+
+func TestReadShiftJIS(t *testing.T) {
+	r, err := OpenReader("testdata/shiftjis.zip", japanese.ShiftJIS)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	files := []struct {
+		name string
+	}{
+		{"初音ミクが好きです.txt"},
+		{"サブフォルダ/readme.txt"},
+	}
+
+	for i := range r.File {
+		if r.File[i].Name != files[i].name {
+			t.Errorf("name=%q, want %q", r.File[i].Name, files[i].name)
+		}
+	}
+}
+
+func TestReadCP1250(t *testing.T) {
+	r, err := OpenReader("testdata/cp1250.zip", charmap.Windows1250)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	files := []struct {
+		name string
+	}{
+		{"ľščťžýáíé.txt"},
+		{"zložka/readme.txt"},
+	}
+
+	for i := range r.File {
+		if r.File[i].Name != files[i].name {
+			t.Errorf("name=%q, want %q", r.File[i].Name, files[i].name)
+		}
+	}
 }
